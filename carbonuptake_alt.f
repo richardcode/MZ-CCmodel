@@ -32,7 +32,7 @@ c     circulation of carbon.
       real*8 heatup2out(0:nout+1),Beta,Alpha
       real*8 heatek2out(0:nout+1),heatu2out(0:nout+1)
       real*8 heateddy2out(0:nout+1),heatn2out(0:nout+1)
-      real*8 heatup3out(0:nout+1),pco2out(0:nout+1)
+      real*8 heatup3out(0:nout+1)
       real*8 heatek3out(0:nout+1),heatu3out(0:nout+1)
       real*8 heateddy3out(0:nout+1),heatn3out(0:nout+1)
 		
@@ -41,10 +41,10 @@ c     circulation of carbon.
 c     Constants required for heat content
         rho0=1027.
         cp=3992.
-	pco20=28.35	! Carbon pressure
-        dc0=9.74e-5	! Carbon anomaly
-        phi00=5.e-6	! air-sea flux
-	DIC0=2.e-3	! initial DIC
+	pco20=113.4
+        dc0=9.74e-5
+        phi00=5.e-6
+	DIC0=2.e-3
 
       pi=3.14159265358979
 
@@ -98,8 +98,7 @@ c
 c     Define anthropogenic forcing time series: 
 c       (a) anthropogenic forcing; (b) AMOC collapse;
         t1=tmax-1000.*year
-c       Set to 140 for ramp to 4xCO2
-        t2=t1+140.*year
+        t2=t1+200.*year
         t3=t1+100.*year
         n1=int(t1/dt)
         n2=int(t2/dt)
@@ -154,8 +153,7 @@ c          print *,d(k),k,theta(k)
 !     Initial air-Sea fluxes	
 	do k=0,nz
         if (k.lt.kmin) then
-          phi0(k)=phi00*(real(kmin-k))	!linear distribution over the 'surface' first layers. 
-					!(to be modified? -> considering the outcropping surface)
+          phi0(k)=phi00*(real(kmin-k))
 	else
 	  phi0(k)=0.0
 	endif
@@ -176,27 +174,21 @@ c          print *,d(k),k,theta(k)
 	enddo
 
 !     pCO2 forcing
-      print *, 'n1 = ',n1
-      print *, 'n2 = ',n2
         do n=0,nstop
           if (n.le.n1) then
             pco2(n)=28.35
           elseif (n.gt.n1.and.n.lt.n2) then 
-c            pco2(n)=((n*dt-t1)/(t2-t1))
-c            pco2(n)=28.35+(pco20-28.35)*(sin(0.5*pi*pco2(n)))**2
-c            Increase partial pressure of CO2 by 1%/yr to 4xCO2 stabilisation
-             pco2(n)=28.35*exp(log(1.01)*(n*dt-t1)/year)
-          elseif (n.ge.n2) then
-            pco2(n)=28.35*exp(log(1.01)*(n2*dt-t1)/year)
+            pco2(n)=((n*dt-t1)/(t2-t1))
+            pco2(n)=28.35+(pco20-28.35)*(sin(0.5*pi*pco2(n)))**2
+          else 
+            pco2(n)=pco20
           endif
         enddo
-c      print *, pco2
 
 c     Minimum upper layer thickness (numerical parameter)
         hmin=1.e-3
 
 c     Main loop
-      print *, nstop
 c
       do n=1,nstop
 c
@@ -323,7 +315,7 @@ c
        
 	do j=1,3
 	do k=kmin,nz-1
-	  dDICdt(k,j)=(1./101325.)*(1.54818e-4)*pco2(n)*thetas*qtot(k,j)/a	!Pressure = 101325 Pa, 
+	  dDICdt(k,j)=(1./101325.)*(1.54818e-4)*pco2(n)*thetas*qtot(k,j)/a
           dDICdt(k,j)=dDICdt(k,j)+18.3*(real(pco2(n)-pco2(n-1))/dt)
 	  g(k,j)=((dc(k-2)-dc(k))/(h(k)+h(k-2)))
 	  g(k,j)=g(k,j)-((dc(k)-dc(k+2))/(h(k)+h(k+2)))
@@ -402,9 +394,7 @@ c           print *,ndump,nout,n,nstop
               heatn2out(ndump)=heatn2
               heateddy2out(ndump)=heateddy2
               heatup3out(ndump)=heatuptake3
-              heatek3out(ndump)=heatek3
-c             Add the forcing pCO2 to the output data
-              pco2out(ndump) = pco2(n)
+              heatek3out(ndump)=heatek3 
 	enddo
 	endif
 
@@ -449,8 +439,7 @@ c
 c     End of main loop
 c
 c     Write data to files
-c
-        print *, 'ndump =',ndump
+c        
         open(unit=9,file='qek.dat',status='unknown') 
         do k=0,nz
          do n=1,ndump
@@ -500,12 +489,6 @@ c
         open(unit=9,file='heat.dat',status='unknown') 
         do n=1,ndump
           write(9,*) heatout(n)
-        enddo
-        close(9)
-c
-        open(unit=9,file='pco2.dat',status='unknown')
-        do n=1,ndump
-          write(9,*) pco2out(n)
         enddo
         close(9)
 c
